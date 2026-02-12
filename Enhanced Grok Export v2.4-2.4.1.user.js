@@ -83,6 +83,63 @@
         });
     }
 
+    // Extract raw markdown from HTML element
+    function extractRawMarkdown(element) {
+        // Check for data-markdown attribute first (direct markdown)
+        const markdownAttr = element.getAttribute('data-markdown');
+        if (markdownAttr) {
+            return markdownAttr;
+        }
+
+        // Check for textarea or input elements that might contain markdown
+        const inputElement = element.querySelector('textarea, input[type="text"]');
+        if (inputElement && inputElement.value) {
+            return inputElement.value;
+        }
+
+        // Check for pre elements (code blocks)
+        const preElement = element.querySelector('pre');
+        if (preElement) {
+            return preElement.textContent || '';
+        }
+
+        // Fallback: try to reconstruct markdown from HTML structure
+        const clone = element.cloneNode(true);
+
+        // Remove unwanted elements
+        const unwanted = clone.querySelectorAll('svg, button, input, select, nav, header, footer, script, style, [aria-hidden="true"], [class*="icon"], [class*="button"], .action-buttons');
+        unwanted.forEach(el => el.remove());
+
+        let htmlContent = clone.innerHTML;
+
+        // Basic HTML to markdown conversion
+        htmlContent = htmlContent
+            .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
+            .replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
+            .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
+            .replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
+            .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
+            .replace(/<pre[^>]*>(.*?)<\/pre>/gi, '```\n$1\n```')
+            .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
+            .replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n')
+            .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gi, '> $1\n')
+            .replace(/<[^>]+>/g, '')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\n\s*\n\s*\n/g, '\n\n')
+            .trim();
+
+        if (htmlContent && htmlContent !== clone.textContent?.trim()) {
+            return htmlContent;
+        }
+
+        return clone.textContent?.trim() || '';
+    }
+
     // Enhanced conversation detection for Grok
     function getConversationData() {
         debugLog('Starting Grok conversation data extraction...');
