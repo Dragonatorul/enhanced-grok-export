@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Enhanced Grok Export
 // @description  Export Grok conversations with improved detection and working PDF
-// @version      2.5.0
+// @version      2.5.1
 // @author       iikoshteruu, Dragonator
 // @grant        none
 // @match        *://grok.com/*
@@ -17,7 +17,10 @@
 (function() {
     'use strict';
 
-    console.log('Enhanced Grok Export v2.5.0 starting...');
+    // Version constant - update this single variable when releasing new versions
+    const VERSION = '2.5.1';
+
+    console.log(`Enhanced Grok Export v${VERSION} starting...`);
 
     // Configuration
     const CONFIG = {
@@ -28,7 +31,7 @@
         autoScroll: true,
         scrollDelay: 1000,
         maxScrollAttempts: 50,
-        version: '2.5.0',
+        version: VERSION,
         shareToX: {
             enabled: true,
             maxLength: 280,
@@ -151,7 +154,7 @@
 
     function debugLog(message, data = null) {
         if (CONFIG.debug) {
-            console.log('[Grok Export v2.5.0]', message, data || '');
+            console.log(`[Grok Export v${VERSION}]`, message, data || '');
         }
     }
 
@@ -718,7 +721,7 @@
             content += `Generated: ${new Date().toLocaleString()}\n`;
             content += `Total Messages: ${messages.length}\n`;
             content += `Source URL: ${window.location.href}\n`;
-            content += `Export Version: Enhanced Grok Export v2.5.0\n\n`;
+            content += `Export Version: Enhanced Grok Export v${VERSION}\n\n`;
 
             // Statistics section
             const stats = {
@@ -803,56 +806,56 @@
     function getConversationName() {
         debugLog('Attempting to extract conversation name...');
         
-        // Strategy 1: Look for h1 or h2 elements that might contain the conversation title
-        const headings = document.querySelectorAll('h1, h2');
-        for (const heading of headings) {
-            const text = heading.textContent?.trim();
-            if (text && text.length > 3 && text.length < 150) {
-                // Exclude common UI labels
-                if (!text.match(/^(Grok|Chat|Conversation|New|Menu|Settings|Profile)$/i)) {
-                    debugLog('Found conversation name from heading:', text);
+        // Strategy 1: Check the page title (browser tab) - MOST RELIABLE
+        // Grok sets the page title to "{ConversationName} - Grok"
+        const pageTitle = document.title;
+        if (pageTitle && !pageTitle.match(/^(Grok|X|Chat)$/i)) {
+            // Remove common suffixes like " - Grok", " | X", etc.
+            const cleanTitle = pageTitle.replace(/\s*[-|]\s*(Grok|X|Chat).*$/i, '').trim();
+            if (cleanTitle && cleanTitle.length > 0 && cleanTitle.length < 200) {
+                debugLog('Found conversation name from page title:', cleanTitle);
+                return cleanTitle;
+            }
+        }
+
+        // Strategy 2: Look for the conversation in the sidebar (current/active conversation)
+        // The sidebar contains links to conversations with their titles
+        const conversationId = window.location.pathname.match(/\/c\/([^/?]+)/)?.[1];
+        if (conversationId) {
+            // Find the sidebar link for the current conversation
+            const sidebarLink = document.querySelector(`a[href*="/c/${conversationId}"]`);
+            if (sidebarLink) {
+                const text = sidebarLink.textContent?.trim();
+                if (text && text.length > 0 && text.length < 200) {
+                    debugLog('Found conversation name from sidebar:', text);
                     return text;
                 }
             }
         }
 
-        // Strategy 2: Look for elements with specific data attributes or classes
+        // Strategy 3: Look for elements with specific data attributes
         const titleSelectors = [
             '[data-testid="conversation-title"]',
             '[data-testid="chat-title"]',
             '.conversation-title',
-            '.chat-title',
-            '[role="heading"][aria-level="1"]',
-            '[role="heading"][aria-level="2"]'
+            '.chat-title'
         ];
 
         for (const selector of titleSelectors) {
             const element = document.querySelector(selector);
             if (element) {
                 const text = element.textContent?.trim();
-                if (text && text.length > 3) {
+                if (text && text.length > 0 && text.length < 200) {
                     debugLog('Found conversation name from selector:', text);
                     return text;
                 }
             }
         }
 
-        // Strategy 3: Check URL for conversation ID or name
-        const urlMatch = window.location.pathname.match(/\/chat\/([^/]+)/);
-        if (urlMatch && urlMatch[1]) {
-            debugLog('Found conversation ID from URL:', urlMatch[1]);
-            return urlMatch[1];
-        }
-
-        // Strategy 4: Look for the title in the page title (browser tab)
-        const pageTitle = document.title;
-        if (pageTitle && !pageTitle.match(/^(Grok|X)$/i)) {
-            // Remove common suffixes like " - Grok", " | X", etc.
-            const cleanTitle = pageTitle.replace(/\s*[-|]\s*(Grok|X|Chat).*$/i, '').trim();
-            if (cleanTitle && cleanTitle.length > 3) {
-                debugLog('Found conversation name from page title:', cleanTitle);
-                return cleanTitle;
-            }
+        // Strategy 4: Use conversation ID from URL as fallback
+        if (conversationId) {
+            debugLog('Using conversation ID from URL as fallback:', conversationId);
+            return conversationId;
         }
 
         debugLog('No conversation name found');
@@ -1039,7 +1042,7 @@
         md += `**Exported:** ${new Date().toLocaleString()}  \n`;
         md += `**Total Messages:** ${messages.length}  \n`;
         md += `**URL:** ${window.location.href}  \n`;
-        md += `**Export Method:** Enhanced Grok Export v2.5.0\n\n`;
+        md += `**Export Method:** Enhanced Grok Export v${VERSION}\n\n`;
         md += `---\n\n`;
 
         messages.forEach(msg => {
@@ -1055,7 +1058,7 @@
         const exportData = {
             exportDate: new Date().toISOString(),
             exportTimestamp: Date.now(),
-            exportVersion: '2.5.0',
+            exportVersion: VERSION,
             platform: 'grok',
             messageCount: messages.length,
             url: window.location.href,
@@ -1415,7 +1418,7 @@
 
     // Initialize the script
     function init() {
-        debugLog('Initializing Enhanced Grok Export v2.5.0...');
+        debugLog(`Initializing Enhanced Grok Export v${VERSION}...`);
 
         // Remove existing elements
         const existingButton = document.getElementById('grok-export-button');
@@ -1443,8 +1446,8 @@
             checkForUpdates();
         }, 3000);
 
-        debugLog('Enhanced Grok Export v2.5.0 initialized successfully!');
-        console.log('%c✅ Enhanced Grok Export v2.5.0 Ready!', 'color: green; font-weight: bold;');
+        debugLog(`Enhanced Grok Export v${VERSION} initialized successfully!`);
+        console.log(`%c✅ Enhanced Grok Export v${VERSION} Ready!`, 'color: green; font-weight: bold;');
         console.log('%c🔧 Updated: Session name now included in exported filenames', 'color: blue; font-weight: bold;');
     }
 
