@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Enhanced Grok Export
 // @description  Export Grok conversations with improved detection and working PDF
-// @version      2.4.2
+// @version      2.5.0
 // @author       iikoshteruu, Dragonator
 // @grant        none
 // @match        *://grok.com/*
@@ -17,7 +17,7 @@
 (function() {
     'use strict';
 
-    console.log('Enhanced Grok Export v2.4.2 starting...');
+    console.log('Enhanced Grok Export v2.5.0 starting...');
 
     // Configuration
     const CONFIG = {
@@ -28,7 +28,7 @@
         autoScroll: true,
         scrollDelay: 1000,
         maxScrollAttempts: 50,
-        version: '2.4.2',
+        version: '2.5.0',
         shareToX: {
             enabled: true,
             maxLength: 280,
@@ -151,7 +151,7 @@
 
     function debugLog(message, data = null) {
         if (CONFIG.debug) {
-            console.log('[Grok Export v2.4.2]', message, data || '');
+            console.log('[Grok Export v2.5.0]', message, data || '');
         }
     }
 
@@ -718,7 +718,7 @@
             content += `Generated: ${new Date().toLocaleString()}\n`;
             content += `Total Messages: ${messages.length}\n`;
             content += `Source URL: ${window.location.href}\n`;
-            content += `Export Version: Enhanced Grok Export v2.4.2\n\n`;
+            content += `Export Version: Enhanced Grok Export v2.5.0\n\n`;
 
             // Statistics section
             const stats = {
@@ -797,6 +797,81 @@
 
         if (currentLine) lines.push(currentLine);
         return lines.join('\n');
+    }
+
+    // Extract conversation name from Grok UI
+    function getConversationName() {
+        debugLog('Attempting to extract conversation name...');
+        
+        // Strategy 1: Look for h1 or h2 elements that might contain the conversation title
+        const headings = document.querySelectorAll('h1, h2');
+        for (const heading of headings) {
+            const text = heading.textContent?.trim();
+            if (text && text.length > 3 && text.length < 150) {
+                // Exclude common UI labels
+                if (!text.match(/^(Grok|Chat|Conversation|New|Menu|Settings|Profile)$/i)) {
+                    debugLog('Found conversation name from heading:', text);
+                    return text;
+                }
+            }
+        }
+
+        // Strategy 2: Look for elements with specific data attributes or classes
+        const titleSelectors = [
+            '[data-testid="conversation-title"]',
+            '[data-testid="chat-title"]',
+            '.conversation-title',
+            '.chat-title',
+            '[role="heading"][aria-level="1"]',
+            '[role="heading"][aria-level="2"]'
+        ];
+
+        for (const selector of titleSelectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+                const text = element.textContent?.trim();
+                if (text && text.length > 3) {
+                    debugLog('Found conversation name from selector:', text);
+                    return text;
+                }
+            }
+        }
+
+        // Strategy 3: Check URL for conversation ID or name
+        const urlMatch = window.location.pathname.match(/\/chat\/([^/]+)/);
+        if (urlMatch && urlMatch[1]) {
+            debugLog('Found conversation ID from URL:', urlMatch[1]);
+            return urlMatch[1];
+        }
+
+        // Strategy 4: Look for the title in the page title (browser tab)
+        const pageTitle = document.title;
+        if (pageTitle && !pageTitle.match(/^(Grok|X)$/i)) {
+            // Remove common suffixes like " - Grok", " | X", etc.
+            const cleanTitle = pageTitle.replace(/\s*[-|]\s*(Grok|X|Chat).*$/i, '').trim();
+            if (cleanTitle && cleanTitle.length > 3) {
+                debugLog('Found conversation name from page title:', cleanTitle);
+                return cleanTitle;
+            }
+        }
+
+        debugLog('No conversation name found');
+        return null;
+    }
+
+    // Sanitize filename to remove invalid characters
+    function sanitizeFilename(name) {
+        if (!name) return '';
+        
+        return name
+            .replace(/[<>:"/\\|?*\x00-\x1F]/g, '') // Remove invalid filename characters
+            .replace(/\s+/g, '-') // Replace spaces with hyphens
+            .replace(/^\.+/, '') // Remove leading dots
+            .replace(/\.+$/, '') // Remove trailing dots
+            .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+            .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
+            .substring(0, 100) // Limit length
+            .trim();
     }
 
     // Create Share to X modal
@@ -964,7 +1039,7 @@
         md += `**Exported:** ${new Date().toLocaleString()}  \n`;
         md += `**Total Messages:** ${messages.length}  \n`;
         md += `**URL:** ${window.location.href}  \n`;
-        md += `**Export Method:** Enhanced Grok Export v2.4.2\n\n`;
+        md += `**Export Method:** Enhanced Grok Export v2.5.0\n\n`;
         md += `---\n\n`;
 
         messages.forEach(msg => {
@@ -980,7 +1055,7 @@
         const exportData = {
             exportDate: new Date().toISOString(),
             exportTimestamp: Date.now(),
-            exportVersion: '2.4.2',
+            exportVersion: '2.5.0',
             platform: 'grok',
             messageCount: messages.length,
             url: window.location.href,
@@ -1077,29 +1152,38 @@
             }
 
             const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            
+            // Get conversation name and sanitize it for filename
+            const conversationName = getConversationName();
+            const sanitizedName = sanitizeFilename(conversationName);
+            const namePrefix = sanitizedName ? `${sanitizedName}-` : '';
+            
+            debugLog('Conversation name:', conversationName);
+            debugLog('Sanitized name for filename:', sanitizedName);
+            
             let filename, content, mimeType;
 
             switch (format) {
                 case 'md':
                     content = formatAsMarkdown(messages);
                     mimeType = 'text/markdown';
-                    filename = `grok-FULL-conversation-${messages.length}msgs-${timestamp}.md`;
+                    filename = `grok-${namePrefix}${messages.length}msgs-${timestamp}.md`;
                     break;
                 case 'json':
                     content = formatAsJSON(messages);
                     mimeType = 'application/json';
-                    filename = `grok-FULL-conversation-${messages.length}msgs-${timestamp}.json`;
+                    filename = `grok-${namePrefix}${messages.length}msgs-${timestamp}.json`;
                     break;
                 case 'pdf':
                     showNotification('📄 Generating document...', 0);
                     content = await formatAsPDF(messages);
                     mimeType = 'text/plain';
-                    filename = `grok-FULL-conversation-${messages.length}msgs-${timestamp}.txt`;
+                    filename = `grok-${namePrefix}${messages.length}msgs-${timestamp}.txt`;
                     break;
                 default:
                     content = formatAsText(messages);
                     mimeType = 'text/plain';
-                    filename = `grok-FULL-conversation-${messages.length}msgs-${timestamp}.txt`;
+                    filename = `grok-${namePrefix}${messages.length}msgs-${timestamp}.txt`;
             }
 
             const success = downloadFile(content, filename, mimeType);
@@ -1331,7 +1415,7 @@
 
     // Initialize the script
     function init() {
-        debugLog('Initializing Enhanced Grok Export v2.4.2...');
+        debugLog('Initializing Enhanced Grok Export v2.5.0...');
 
         // Remove existing elements
         const existingButton = document.getElementById('grok-export-button');
@@ -1359,9 +1443,9 @@
             checkForUpdates();
         }, 3000);
 
-        debugLog('Enhanced Grok Export v2.4.2 initialized successfully!');
-        console.log('%c✅ Enhanced Grok Export v2.4.2 Ready!', 'color: green; font-weight: bold;');
-        console.log('%c🔧 Updated: Enhanced markdown extraction and speaker detection', 'color: blue; font-weight: bold;');
+        debugLog('Enhanced Grok Export v2.5.0 initialized successfully!');
+        console.log('%c✅ Enhanced Grok Export v2.5.0 Ready!', 'color: green; font-weight: bold;');
+        console.log('%c🔧 Updated: Session name now included in exported filenames', 'color: blue; font-weight: bold;');
     }
 
     // Wait for page to be ready
