@@ -47,7 +47,7 @@
   },
   "scripts": {
     "test": "echo 'Running userscript validation...' && node scripts/validate.js",
-    "lint": "echo 'Linting JavaScript...' && npx eslint enhanced-grok-export.user.js",
+    "lint": "echo 'Linting JavaScript...' && npx eslint 'Enhanced Grok Export v2.4-2.4.1.user.js'",
     "validate": "echo 'Validating userscript headers...' && node scripts/validate-headers.js",
     "security": "echo 'Running security audit...' && npm audit",
     "release": "npm run validate && npm run security && echo 'Ready for release!'",
@@ -57,7 +57,7 @@
     "check-updates": "npm outdated"
   },
   "devDependencies": {
-    "eslint": "^8.0.0"
+    "eslint": "^8.57.1"
   },
   "browserslist": [
     "last 2 Chrome versions",
@@ -71,7 +71,7 @@
     "homepageURL": "https://github.com/iikoshteruu/enhanced-grok-export",
     "downloadURL": "https://github.com/iikoshteruu/enhanced-grok-export/raw/main/enhanced-grok-export.user.js",
     "greasyforkURL": "https://greasyfork.org/en/scripts/537266-enhanced-grok-export-v2-4",
-    "greasyforkID": "537266"
+    "greasyforkID": "537266",
     "updateURL": "https://github.com/iikoshteruu/enhanced-grok-export/raw/main/enhanced-grok-export.user.js",
     "grant": "none",
     "matches": [
@@ -86,7 +86,12 @@
   },
   "config": {
     "userscript_manager": "tampermonkey",
-    "supported_browsers": ["chrome", "firefox", "edge", "safari"],
+    "supported_browsers": [
+      "chrome",
+      "firefox",
+      "edge",
+      "safari"
+    ],
     "minimum_browser_versions": {
       "chrome": "90",
       "firefox": "88",
@@ -95,7 +100,13 @@
     }
   },
   "features": {
-    "export_formats": ["markdown", "plaintext", "json", "pdf", "share-to-x"],
+    "export_formats": [
+      "markdown",
+      "plaintext",
+      "json",
+      "pdf",
+      "share-to-x"
+    ],
     "speaker_detection": true,
     "mode_detection": true,
     "auto_scroll": true,
@@ -115,12 +126,12 @@
   "compatibility": {
     "userscript_managers": [
       "Tampermonkey",
-      "Greasemonkey", 
+      "Greasemonkey",
       "Violentmonkey"
     ],
     "platforms": [
       "Windows",
-      "macOS", 
+      "macOS",
       "Linux"
     ],
     "grok_interfaces": [

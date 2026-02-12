@@ -155,7 +155,7 @@
                 );
                 unwanted.forEach(el => el.remove());
 
-                const text = clone.textContent?.trim() || '';
+                const text = extractRawMarkdown(element);
 
                 if (text && text.length > 10 && !processedTexts.has(text)) {
                     processedTexts.add(text);
@@ -187,7 +187,7 @@
         return messages;
     }
 
-    // REVISED: Speaker detection using position and content analysis
+    // Enhanced Grok speaker detection with advanced pattern analysis
     function detectGrokSpeakerAdvanced(element, text, index, allElements) {
         let debugInfo = { scores: {}, reasoning: [] };
 
@@ -242,7 +242,6 @@
             { pattern: /^(From your|Based on your|Looking at your|The error|This means|Why It's Happening)/i, score: 4, name: 'Grok analysis starters' },
             { pattern: /```/, score: 3, name: 'Code block' },
             { pattern: /(docker|container|build|error|issue|problem|fix|solution)/i, score: 2, name: 'Technical terms' },
-            { pattern: /^(Based on|According to|The analysis|This approach|In summary|Overview)/i, score: 2, name: 'Analytical language' },
             { pattern: /(implementation|algorithm|analysis|explanation|methodology|digital realm)/i, score: 1, name: 'Technical/AI terms' },
             { pattern: /\n\n/, score: 1, name: 'Structured paragraphs' },
             { pattern: /(fully alive|kicking in the digital realm|locked in|squash|tackle this)/i, score: 4, name: 'Grok personality phrases' },
@@ -299,7 +298,7 @@
         }
 
         // 5. CONVERSATION POSITION ANALYSIS
-        const messagesSoFar = index + 1;
+        // (Removed unused messagesSoFar variable)
 
         // First message is typically human
         if (index === 0) {
@@ -518,7 +517,7 @@
             <div style="margin-bottom: 16px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600;">Select Messages to Share:</label>
                 <div id="message-selector" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
-                    ${messages.map((msg, index) => `
+                    ${messages.map((msg) => `
                         <div style="margin-bottom: 12px; padding: 8px; border-radius: 6px; background: ${msg.speaker === 'Human' ? '#f0f8ff' : '#f8f9fa'};">
                             <label style="display: flex; align-items: flex-start; cursor: pointer;">
                                 <input type="checkbox" data-msg-id="${msg.id}" style="margin-right: 8px; margin-top: 4px;">
