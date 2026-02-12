@@ -91,7 +91,6 @@
             const copySelectors = [
                 'button[aria-label="Copy"]',
                 'div.action-buttons button:nth-child(4)', // 4th button in action bar
-                'button:has(svg[data-testid="copy-icon"])',
                 'button[data-testid*="copy"]'
             ];
 
