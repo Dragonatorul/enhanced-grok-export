@@ -83,8 +83,63 @@
         });
     }
 
-    // Extract raw markdown from HTML element
+    // Extract raw markdown using Grok's native copy functionality
     function extractRawMarkdown(element) {
+        try {
+            // Find the copy button within this message element
+            // Try multiple selector strategies for robustness
+            const copySelectors = [
+                'button[aria-label="Copy"]',
+                'div.action-buttons button:nth-child(4)', // 4th button in action bar
+                'button:has(svg[data-testid="copy-icon"])',
+                'button[data-testid*="copy"]'
+            ];
+
+            let copyButton = null;
+            for (const selector of copySelectors) {
+                copyButton = element.querySelector(selector);
+                if (copyButton) break;
+            }
+
+            if (!copyButton) {
+                debugLog('No copy button found, falling back to HTML extraction');
+                return extractMarkdownFromHTML(element);
+            }
+
+            // Temporarily capture clipboard writes
+            let capturedMarkdown = null;
+            const originalWriteText = navigator.clipboard.writeText;
+
+            navigator.clipboard.writeText = function(text) {
+                capturedMarkdown = text;
+                return Promise.resolve(); // Return a resolved promise
+            };
+
+            // Click the copy button
+            copyButton.click();
+
+            // Restore original function
+            navigator.clipboard.writeText = originalWriteText;
+
+            // Small delay to ensure clipboard operation completes
+            // Since we're in sync context, the capturedMarkdown should be set immediately
+
+            if (capturedMarkdown && capturedMarkdown.trim().length > 10) {
+                debugLog('Successfully extracted markdown via native copy:', capturedMarkdown.substring(0, 100) + '...');
+                return capturedMarkdown.trim();
+            } else {
+                debugLog('Native copy failed or empty, falling back to HTML extraction');
+                return extractMarkdownFromHTML(element);
+            }
+
+        } catch (error) {
+            debugLog('Error extracting via native copy:', error.message);
+            return extractMarkdownFromHTML(element);
+        }
+    }
+
+    // Fallback: Extract markdown by converting HTML (our original method)
+    function extractMarkdownFromHTML(element) {
         // Check for data-markdown attribute first (direct markdown)
         const markdownAttr = element.getAttribute('data-markdown');
         if (markdownAttr) {
