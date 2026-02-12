@@ -2,14 +2,14 @@
 // @name         Enhanced Grok Export
 // @description  Export Grok conversations with improved detection and working PDF
 // @version      2.4.2
-// @author       iikoshteruu
+// @author       iikoshteruu, Dragonator
 // @grant        none
 // @match        *://grok.com/*
 // @match        *://x.com/*
 // @license      MIT
-// @namespace    https://github.com/iikoshteruu/enhanced-grok-export
-// @homepageURL  https://github.com/iikoshteruu/enhanced-grok-export
-// @supportURL   https://github.com/iikoshteruu/enhanced-grok-export/issues
+// @namespace    https://github.com/Dragonatorul/enhanced-grok-export
+// @homepageURL  https://github.com/Dragonatorul/enhanced-grok-export
+// @supportURL   https://github.com/Dragonatorul/enhanced-grok-export/issues
 // ==/UserScript==
 
 (function() {
