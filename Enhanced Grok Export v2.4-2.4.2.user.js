@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Enhanced Grok Export v2.4
-// @description  Export Grok conversations with improved detection and working PDF
-// @version      2.4.1
+// @description  Export Grok conversations with improved detection and working PDF (v2.4.2)
+// @version      2.4.2
 // @author       iikoshteruu
 // @grant        none
 // @match        *://grok.com/*
@@ -15,7 +15,7 @@
 (function() {
     'use strict';
 
-    console.log('Enhanced Grok Export v2.4.1 starting...');
+    console.log('Enhanced Grok Export v2.4.2 starting...');
 
     // Configuration
     const CONFIG = {
@@ -37,7 +37,7 @@
 
     function debugLog(message, data = null) {
         if (CONFIG.debug) {
-            console.log('[Grok Export v2.4.1]', message, data || '');
+            console.log('[Grok Export v2.4.2]', message, data || '');
         }
     }
 
@@ -604,7 +604,7 @@
             content += `Generated: ${new Date().toLocaleString()}\n`;
             content += `Total Messages: ${messages.length}\n`;
             content += `Source URL: ${window.location.href}\n`;
-            content += `Export Version: Enhanced Grok Export v2.4.1\n\n`;
+            content += `Export Version: Enhanced Grok Export v2.4.2\n\n`;
 
             // Statistics section
             const stats = {
@@ -850,7 +850,7 @@
         md += `**Exported:** ${new Date().toLocaleString()}  \n`;
         md += `**Total Messages:** ${messages.length}  \n`;
         md += `**URL:** ${window.location.href}  \n`;
-        md += `**Export Method:** Enhanced Grok Export v2.4.1\n\n`;
+        md += `**Export Method:** Enhanced Grok Export v2.4.2\n\n`;
         md += `---\n\n`;
 
         messages.forEach(msg => {
@@ -866,7 +866,7 @@
         const exportData = {
             exportDate: new Date().toISOString(),
             exportTimestamp: Date.now(),
-            exportVersion: '2.4.1',
+            exportVersion: '2.4.2',
             platform: 'grok',
             messageCount: messages.length,
             url: window.location.href,
@@ -1217,7 +1217,7 @@
 
     // Initialize the script
     function init() {
-        debugLog('Initializing Enhanced Grok Export v2.4.1...');
+        debugLog('Initializing Enhanced Grok Export v2.4.2...');
 
         // Remove existing elements
         const existingButton = document.getElementById('grok-export-button');
