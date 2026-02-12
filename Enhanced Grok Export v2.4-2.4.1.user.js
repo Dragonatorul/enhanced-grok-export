@@ -83,144 +83,246 @@
         });
     }
 
-    // Extract raw markdown using Grok's native copy functionality
+    // Extract raw markdown from HTML element
     function extractRawMarkdown(element) {
-        try {
-            // Find the copy button within this message element
-            // Try multiple selector strategies for robustness
-            const copySelectors = [
-                'button[aria-label="Copy"]',
-                'div.action-buttons button:nth-child(4)', // 4th button in action bar
-                'button[data-testid*="copy"]'
-            ];
-
-            let copyButton = null;
-            for (const selector of copySelectors) {
-                copyButton = element.querySelector(selector);
-                if (copyButton) break;
-            }
-
-            if (!copyButton) {
-                debugLog('No copy button found, falling back to HTML extraction');
-                return extractMarkdownFromHTML(element);
-            }
-
-            // Temporarily capture clipboard writes
-            let capturedMarkdown = null;
-            const originalWriteText = navigator.clipboard.writeText;
-
-            navigator.clipboard.writeText = function(text) {
-                capturedMarkdown = text;
-                return Promise.resolve(); // Return a resolved promise
-            };
-
-            // Click the copy button
-            copyButton.click();
-
-            // Restore original function
-            navigator.clipboard.writeText = originalWriteText;
-
-            // Small delay to ensure clipboard operation completes
-            // Since we're in sync context, the capturedMarkdown should be set immediately
-
-            if (capturedMarkdown && capturedMarkdown.trim().length > 10) {
-                debugLog('Successfully extracted markdown via native copy:', capturedMarkdown.substring(0, 100) + '...');
-                return capturedMarkdown.trim();
-            } else {
-                debugLog('Native copy failed or empty, falling back to HTML extraction');
-                return extractMarkdownFromHTML(element);
-            }
-
-        } catch (error) {
-            debugLog('Error extracting via native copy:', error.message);
-            return extractMarkdownFromHTML(element);
-        }
+        debugLog('Extracting markdown from element...');
+        if (!element) return '';
+        return extractMarkdownFromHTML(element);
     }
 
-    // Fallback: Extract markdown by converting HTML (our original method)
+    function normalizeMarkdown(markdown) {
+        return markdown
+            .replace(/\r\n/g, '\n')
+            .replace(/[\t\f\v]+/g, ' ')
+            .replace(/\n\s*\n\s*\n+/g, '\n\n')
+            .replace(/^\s+|\s+$/g, '')
+            .trim();
+    }
+
+    function cleanInlineText(text) {
+        return (text || '')
+            .replace(/\u00a0/g, ' ')
+            .replace(/[\t\f\v]+/g, ' ')
+            .replace(/\s+/g, ' ');
+    }
+
+    function cleanText(text) {
+        return (text || '')
+            .replace(/\u00a0/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function getConversationRoot() {
+        return document.querySelector('main') || document.querySelector('[role="main"]');
+    }
+
+    function filterToRoot(elements, root) {
+        if (!root) return elements;
+        return elements.filter(el => root.contains(el));
+    }
+
+    function filterOutComposer(elements) {
+        return elements.filter(el => {
+            if (el.closest('form')) return false;
+            if (el.querySelector('textarea, input, [contenteditable="true"]')) return false;
+            return true;
+        });
+    }
+
+    // Fallback: Extract markdown by converting HTML using a DOM walk
     function extractMarkdownFromHTML(element) {
-        // Check for data-markdown attribute first (direct markdown)
-        const markdownAttr = element.getAttribute('data-markdown');
-        if (markdownAttr) {
-            return markdownAttr;
-        }
-
-        // Check for textarea or input elements that might contain markdown
-        const inputElement = element.querySelector('textarea, input[type="text"]');
-        if (inputElement && inputElement.value) {
-            return inputElement.value;
-        }
-
-        // Check for pre elements (code blocks)
-        const preElement = element.querySelector('pre');
-        if (preElement) {
-            return preElement.textContent || '';
-        }
-
-        // Fallback: try to reconstruct markdown from HTML structure
         const clone = element.cloneNode(true);
 
-        // Remove unwanted elements
-        const unwanted = clone.querySelectorAll('svg, button, input, select, nav, header, footer, script, style, [aria-hidden="true"], [class*="icon"], [class*="button"], .action-buttons');
-        unwanted.forEach(el => el.remove());
+        const unwantedSelectors = [
+            'svg', 'button', 'input', 'select', 'nav', 'header', 'footer',
+            'script', 'style', '[aria-hidden="true"]', '[class*="icon"]',
+            '[class*="button"]', '.action-buttons', '[role="button"]',
+            '.copy-button', '.regenerate-button', '.edit-button'
+        ];
 
-        let htmlContent = clone.innerHTML;
+        unwantedSelectors.forEach(selector => {
+            clone.querySelectorAll(selector).forEach(el => el.remove());
+        });
 
-        // Basic HTML to markdown conversion
-        htmlContent = htmlContent
-            .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
-            .replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
-            .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
-            .replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
-            .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
-            .replace(/<pre[^>]*>(.*?)<\/pre>/gi, '```\n$1\n```')
-            .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
-            .replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n')
-            .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gi, '> $1\n')
-            .replace(/<[^>]+>/g, '')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&amp;/g, '&')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .replace(/&nbsp;/g, ' ')
-            .replace(/\n\s*\n\s*\n/g, '\n\n')
-            .trim();
+        function serializeTable(table) {
+            const rows = Array.from(table.querySelectorAll('tr'));
+            if (rows.length === 0) return '';
 
-        if (htmlContent && htmlContent !== clone.textContent?.trim()) {
-            return htmlContent;
+            const rowData = rows.map(row =>
+                Array.from(row.querySelectorAll('th, td')).map(cell => cleanText(cell.textContent))
+            ).filter(cells => cells.length > 0);
+
+            if (rowData.length === 0) return '';
+
+            let header = rowData[0];
+            let bodyRows = rowData.slice(1);
+
+            const hasHeader = rows[0].querySelectorAll('th').length > 0;
+            if (!hasHeader && rowData.length > 1) {
+                header = rowData[0];
+                bodyRows = rowData.slice(1);
+            } else if (!hasHeader) {
+                bodyRows = [];
+            }
+
+            const headerLine = `| ${header.join(' | ')} |`;
+            const separatorLine = `|${header.map(() => ' --- ').join('|')}|`;
+            const bodyLines = bodyRows.map(row => `| ${row.join(' | ')} |`).join('\n');
+
+            return `\n${headerLine}\n${separatorLine}${bodyLines ? '\n' + bodyLines : ''}\n\n`;
         }
 
-        return clone.textContent?.trim() || '';
+        function serializeNode(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return cleanInlineText(node.nodeValue);
+            }
+
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return '';
+            }
+
+            const tag = node.tagName.toLowerCase();
+
+            if (tag === 'br') {
+                return '\n';
+            }
+
+            if (tag === 'pre') {
+                const codeText = node.textContent ? node.textContent.trim() : '';
+                return `\n\n\`\`\`\n${codeText}\n\`\`\`\n\n`;
+            }
+
+            if (tag === 'code') {
+                const codeText = cleanText(node.textContent);
+                if (node.closest('pre')) return codeText;
+                return codeText ? `\`${codeText}\`` : '';
+            }
+
+            if (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') {
+                const level = parseInt(tag.replace('h', ''), 10);
+                const prefix = '#'.repeat(level);
+                const content = serializeChildren(node).trim();
+                return `\n\n${prefix} ${content}\n\n`;
+            }
+
+            if (tag === 'p' || tag === 'div' || tag === 'section' || tag === 'article') {
+                const content = serializeChildren(node).trim();
+                return content ? `\n\n${content}\n\n` : '';
+            }
+
+            if (tag === 'strong' || tag === 'b') {
+                const content = serializeChildren(node).trim();
+                return content ? `**${content}**` : '';
+            }
+
+            if (tag === 'em' || tag === 'i') {
+                const content = serializeChildren(node).trim();
+                return content ? `*${content}*` : '';
+            }
+
+            if (tag === 'a') {
+                const href = node.getAttribute('href');
+                const content = serializeChildren(node).trim() || cleanText(node.textContent);
+                if (href && content) return `[${content}](${href})`;
+                return content;
+            }
+
+            if (tag === 'blockquote') {
+                const content = serializeChildren(node).trim();
+                if (!content) return '';
+                return `\n\n> ${content.replace(/\n/g, '\n> ')}\n\n`;
+            }
+
+            if (tag === 'ul') {
+                const items = Array.from(node.children)
+                    .filter(child => child.tagName && child.tagName.toLowerCase() === 'li')
+                    .map(li => serializeChildren(li).trim())
+                    .filter(Boolean)
+                    .map(text => `- ${text}`)
+                    .join('\n');
+                return items ? `\n\n${items}\n\n` : '';
+            }
+
+            if (tag === 'ol') {
+                const items = Array.from(node.children)
+                    .filter(child => child.tagName && child.tagName.toLowerCase() === 'li')
+                    .map(li => serializeChildren(li).trim())
+                    .filter(Boolean)
+                    .map((text, index) => `${index + 1}. ${text}`)
+                    .join('\n');
+                return items ? `\n\n${items}\n\n` : '';
+            }
+
+            if (tag === 'li') {
+                return serializeChildren(node);
+            }
+
+            if (tag === 'table') {
+                return serializeTable(node);
+            }
+
+            if (tag === 'img') {
+                const alt = cleanText(node.getAttribute('alt') || '');
+                const src = node.getAttribute('src');
+                if (src) return `![${alt}](${src})`;
+                return '';
+            }
+
+            return serializeChildren(node);
+        }
+
+        function serializeChildren(node) {
+            return Array.from(node.childNodes).map(serializeNode).join('');
+        }
+
+        const markdown = serializeNode(clone);
+        const normalized = normalizeMarkdown(markdown);
+
+        return normalized.length > 0 ? normalized : cleanText(clone.innerText || clone.textContent || '');
     }
 
     // Enhanced conversation detection for Grok
     function getConversationData() {
         debugLog('Starting Grok conversation data extraction...');
         const messages = [];
+        const root = getConversationRoot();
+        const rootNode = root || document;
 
         const strategies = [
             // Strategy 1: Find all message bubbles (Tailwind classes - Jan 2025)
             () => {
-                const messageBubbles = document.querySelectorAll('.message-bubble');
+                const messageBubbles = rootNode.querySelectorAll('.message-bubble');
                 debugLog(`Found ${messageBubbles.length} message bubbles`);
                 return Array.from(messageBubbles);
             },
             // Strategy 2: Find markdown response content
             () => {
-                const responses = document.querySelectorAll('.response-content-markdown');
+                const responses = rootNode.querySelectorAll('.response-content-markdown');
                 debugLog(`Found ${responses.length} response-content-markdown elements`);
                 return Array.from(responses).map(el => el.closest('.message-bubble') || el);
             },
+            // Strategy 3: Conversation turns (data-testid based)
+            () => {
+                const turns = rootNode.querySelectorAll('[data-testid="conversation-turn"], [data-testid="chat-message"], [data-testid="message"]');
+                debugLog(`Found ${turns.length} data-testid conversation elements`);
+                return Array.from(turns);
+            },
+            // Strategy 4: Prose/markdown containers
+            () => {
+                const prose = rootNode.querySelectorAll('.prose, .markdown, [class*="markdown"], [class*="prose"]');
+                debugLog(`Found ${prose.length} prose/markdown containers`);
+                return Array.from(prose).map(el => el.closest('.message-bubble') || el);
+            },
             // Strategy 3: Legacy CSS-in-JS selectors (kept for backwards compatibility)
             () => {
-                const messageContainers = document.querySelectorAll('div[class*="css-146c3p1"]');
+                const messageContainers = rootNode.querySelectorAll('div[class*="css-146c3p1"]');
                 debugLog(`Found ${messageContainers.length} containers with css-146c3p1`);
                 return Array.from(messageContainers);
             },
             // Strategy 4: Fallback to dir="ltr"
             () => {
-                const ltrDivs = document.querySelectorAll('div[dir="ltr"]');
+                const ltrDivs = rootNode.querySelectorAll('div[dir="ltr"]');
                 debugLog(`Found ${ltrDivs.length} divs with dir='ltr'`);
                 return Array.from(ltrDivs).filter(div => {
                     const text = div.textContent?.trim() || '';
@@ -237,6 +339,8 @@
                 debugLog(`Strategy ${i + 1} found ${messageElements.length} elements`);
 
                 if (messageElements.length > 0) {
+                    messageElements = filterToRoot(messageElements, root);
+                    messageElements = filterOutComposer(messageElements);
                     messageElements = messageElements.filter(el => {
                         const text = el.textContent?.trim() || '';
                         return text.length > 10 && text.length < 50000;
@@ -258,14 +362,6 @@
 
         messageElements.forEach((element, index) => {
             try {
-                const clone = element.cloneNode(true);
-
-                const unwanted = clone.querySelectorAll(
-                    'svg, button, input, select, nav, header, footer, script, style, ' +
-                    '[aria-hidden="true"], [class*="icon"], [class*="button"], .action-buttons'
-                );
-                unwanted.forEach(el => el.remove());
-
                 const text = extractRawMarkdown(element);
 
                 if (text && text.length > 10 && !processedTexts.has(text)) {
