@@ -10,6 +10,8 @@
 // @namespace    https://github.com/Dragonatorul/enhanced-grok-export
 // @homepageURL  https://github.com/Dragonatorul/enhanced-grok-export
 // @supportURL   https://github.com/Dragonatorul/enhanced-grok-export/issues
+// @updateURL    https://raw.githubusercontent.com/Dragonatorul/enhanced-grok-export/rc/Enhanced%20Grok%20Export.user.js
+// @downloadURL  https://raw.githubusercontent.com/Dragonatorul/enhanced-grok-export/rc/Enhanced%20Grok%20Export.user.js
 // ==/UserScript==
 
 (function() {
@@ -26,6 +28,7 @@
         autoScroll: true,
         scrollDelay: 1000,
         maxScrollAttempts: 50,
+        version: '2.4.2',
         shareToX: {
             enabled: true,
             maxLength: 280,
@@ -34,6 +37,117 @@
     };
 
     let isExporting = false;
+
+    // Update checking functionality
+    function checkForUpdates() {
+        debugLog('Checking for updates...');
+
+        const currentVersion = CONFIG.version;
+        const updateUrl = 'https://raw.githubusercontent.com/Dragonatorul/enhanced-grok-export/rc/Enhanced%20Grok%20Export.user.js';
+
+        fetch(updateUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.text();
+            })
+            .then(scriptContent => {
+                // Extract version from the downloaded script
+                const versionMatch = scriptContent.match(/@version\s+([0-9]+\.[0-9]+\.[0-9]+)/);
+                if (versionMatch) {
+                    const latestVersion = versionMatch[1];
+                    debugLog(`Current version: ${currentVersion}, Latest version: ${latestVersion}`);
+
+                    if (compareVersions(latestVersion, currentVersion) > 0) {
+                        // Newer version available
+                        showUpdateNotification(latestVersion);
+                    } else if (compareVersions(latestVersion, currentVersion) === 0) {
+                        debugLog('Script is up to date');
+                    } else {
+                        debugLog('Local version appears to be newer than remote');
+                    }
+                } else {
+                    debugLog('Could not extract version from remote script');
+                }
+            })
+            .catch(error => {
+                debugLog('Update check failed:', error.message);
+            });
+    }
+
+    // Helper function to compare version strings
+    function compareVersions(version1, version2) {
+        const v1Parts = version1.split('.').map(Number);
+        const v2Parts = version2.split('.').map(Number);
+
+        for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
+            const v1Part = v1Parts[i] || 0;
+            const v2Part = v2Parts[i] || 0;
+
+            if (v1Part > v2Part) return 1;
+            if (v1Part < v2Part) return -1;
+        }
+
+        return 0;
+    }
+
+    // Show update notification
+    function showUpdateNotification(latestVersion) {
+        const notification = document.createElement('div');
+        notification.id = 'grok-update-notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            z-index: 10001;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            box-shadow: 0 6px 20px rgba(255,107,53,0.3);
+            max-width: 350px;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.2);
+        `;
+
+        notification.innerHTML = `
+            <div style="display: flex; align-items: flex-start; gap: 12px;">
+                <div style="font-size: 24px;">⬆️</div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">Update Available!</div>
+                    <div style="font-size: 14px; opacity: 0.95; margin-bottom: 8px;">
+                        Enhanced Grok Export v${latestVersion} is now available.
+                    </div>
+                    <div style="font-size: 12px; opacity: 0.8;">
+                        Click to visit the repository for installation instructions.
+                    </div>
+                </div>
+                <button id="dismiss-update" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; opacity: 0.7; margin-left: 8px;">×</button>
+            </div>
+        `;
+
+        notification.onclick = (e) => {
+            if (e.target.id !== 'dismiss-update') {
+                window.open('https://github.com/Dragonatorul/enhanced-grok-export', '_blank');
+            }
+        };
+
+        document.getElementById('dismiss-update')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            notification.remove();
+        });
+
+        document.body.appendChild(notification);
+
+        // Auto-dismiss after 30 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 30000);
+    }
 
     function debugLog(message, data = null) {
         if (CONFIG.debug) {
@@ -1240,9 +1354,14 @@
             }
         });
 
-        debugLog('Enhanced Grok Export v2.4.1 initialized successfully!');
-        console.log('%c✅ Enhanced Grok Export v2.4.1 Ready!', 'color: green; font-weight: bold;');
-        console.log('%c🔧 Updated: New Tailwind CSS selectors for Jan 2025', 'color: blue; font-weight: bold;');
+        // Check for updates (only once per session, with delay)
+        setTimeout(() => {
+            checkForUpdates();
+        }, 3000);
+
+        debugLog('Enhanced Grok Export v2.4.2 initialized successfully!');
+        console.log('%c✅ Enhanced Grok Export v2.4.2 Ready!', 'color: green; font-weight: bold;');
+        console.log('%c🔧 Updated: Enhanced markdown extraction and speaker detection', 'color: blue; font-weight: bold;');
     }
 
     // Wait for page to be ready
