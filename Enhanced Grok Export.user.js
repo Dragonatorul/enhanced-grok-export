@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Enhanced Grok Export
 // @description  Export Grok conversations with improved detection and working PDF
-// @version      2.5.1
+// @version      2.5.2
 // @author       iikoshteruu, Dragonator
 // @grant        none
 // @match        *://grok.com/*
@@ -18,7 +18,7 @@
     'use strict';
 
     // Version constant - update this single variable when releasing new versions
-    const VERSION = '2.5.1';
+    const VERSION = '2.5.2';
 
     console.log(`Enhanced Grok Export v${VERSION} starting...`);
 
@@ -805,30 +805,45 @@
     // Extract conversation name from Grok UI
     function getConversationName() {
         debugLog('Attempting to extract conversation name...');
-        
-        // Strategy 1: Check the page title (browser tab) - MOST RELIABLE
-        // Grok sets the page title to "{ConversationName} - Grok"
-        const pageTitle = document.title;
-        if (pageTitle && !pageTitle.match(/^(Grok|X|Chat)$/i)) {
-            // Remove common suffixes like " - Grok", " | X", etc.
-            const cleanTitle = pageTitle.replace(/\s*[-|]\s*(Grok|X|Chat).*$/i, '').trim();
-            if (cleanTitle && cleanTitle.length > 0 && cleanTitle.length < 200) {
-                debugLog('Found conversation name from page title:', cleanTitle);
-                return cleanTitle;
-            }
-        }
 
-        // Strategy 2: Look for the conversation in the sidebar (current/active conversation)
-        // The sidebar contains links to conversations with their titles
-        const conversationId = window.location.pathname.match(/\/c\/([^/?]+)/)?.[1];
+        // Detect if we are inside a project page.
+        // Project URLs look like: /project/{projectId}?chat={chatId}
+        // In this case the page title shows the project name, not the conversation name.
+        const isProject = /^\/project\//i.test(window.location.pathname);
+
+        // Extract the conversation ID from either:
+        //   - the path segment: /c/{conversationId}  (standalone chats)
+        //   - the "chat" query parameter: ?chat={conversationId}  (project chats)
+        const conversationId =
+            window.location.pathname.match(/\/c\/([^/?]+)/)?.[1] ||
+            new URLSearchParams(window.location.search).get('chat') ||
+            null;
+
+        // Strategy 1: Sidebar / project-panel link matching the current conversation ID.
+        // This is the most reliable source when inside a project because the page title
+        // reflects the project name rather than the conversation name.
         if (conversationId) {
-            // Find the sidebar link for the current conversation
             const sidebarLink = document.querySelector(`a[href*="/c/${conversationId}"]`);
             if (sidebarLink) {
                 const text = sidebarLink.textContent?.trim();
                 if (text && text.length > 0 && text.length < 200) {
-                    debugLog('Found conversation name from sidebar:', text);
+                    debugLog('Found conversation name from sidebar link:', text);
                     return text;
+                }
+            }
+        }
+
+        // Strategy 2: Check the page title (browser tab).
+        // Skipped for project pages because the title shows the project name.
+        // For standalone chats Grok sets the title to "{ConversationName} - Grok".
+        if (!isProject) {
+            const pageTitle = document.title;
+            if (pageTitle && !pageTitle.match(/^(Grok|X|Chat)$/i)) {
+                // Remove common suffixes like " - Grok", " | X", etc.
+                const cleanTitle = pageTitle.replace(/\s*[-|]\s*(Grok|X|Chat).*$/i, '').trim();
+                if (cleanTitle && cleanTitle.length > 0 && cleanTitle.length < 200) {
+                    debugLog('Found conversation name from page title:', cleanTitle);
+                    return cleanTitle;
                 }
             }
         }
