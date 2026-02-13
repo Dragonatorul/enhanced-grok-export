@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Enhanced Grok Export
 // @description  Export Grok conversations with improved detection and working PDF
-// @version      2.5.3
+// @version      2.5.4
 // @author       iikoshteruu, Dragonator
 // @grant        none
 // @match        *://grok.com/*
@@ -18,7 +18,7 @@
     'use strict';
 
     // Version constant - update this single variable when releasing new versions
-    const VERSION = '2.5.3';
+    const VERSION = '2.5.4';
 
     console.log(`Enhanced Grok Export v${VERSION} starting...`);
 
@@ -819,11 +819,29 @@
             new URLSearchParams(window.location.search).get('chat') ||
             null;
 
-        // Strategy 1: Sidebar / project-panel link matching the current conversation ID.
-        // This is the most reliable source when inside a project because the page title
-        // reflects the project name rather than the conversation name.
-        // Multiple elements may share the same href (e.g. the top nav "Chat" link and the
-        // history entry), so iterate all matches and skip generic single-word nav labels.
+        // Strategy 1: Project panel conversation list.
+        // Inside a project the conversations panel uses empty overlay <a> links alongside a
+        // sibling <span class="truncate"> that holds the title text. Navigate from the
+        // matching link to the span via the shared .grid ancestor.
+        if (conversationId) {
+            const panelLink = document.querySelector(
+                `[id*="content-conversations"] a[href*="/c/${conversationId}"]`
+            );
+            if (panelLink) {
+                const grid = panelLink.closest('.grid');
+                const span = grid?.querySelector('span.truncate');
+                const text = span?.textContent?.trim();
+                if (text && text.length > 0 && text.length < 200) {
+                    debugLog('Found conversation name from project panel:', text);
+                    return text;
+                }
+            }
+        }
+
+        // Strategy 2: Sidebar history link matching the current conversation ID.
+        // For standalone (non-project) chats the sidebar renders full <a> elements whose
+        // text content is the conversation title. Multiple elements may share the same href
+        // (e.g. the top nav "Chat" link), so skip generic single-word nav labels.
         if (conversationId) {
             const candidateLinks = document.querySelectorAll(`a[href*="/c/${conversationId}"]`);
             for (const link of candidateLinks) {
@@ -1197,7 +1215,7 @@
                     break;
                 case 'pdf':
                     showNotification('📄 Generating document...', 0);
-                    content = await formatAsPDF(messages);
+                    content = formatAsPDF(messages);
                     mimeType = 'text/plain';
                     filename = `grok-${namePrefix}${messages.length}msgs-${timestamp}.txt`;
                     break;
