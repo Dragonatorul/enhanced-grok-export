@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Enhanced Grok Export
 // @description  Export Grok conversations with improved detection and working PDF
-// @version      2.5.4
+// @version      2.5.5
 // @author       iikoshteruu, Dragonator
 // @grant        none
 // @match        *://grok.com/*
@@ -18,7 +18,7 @@
     'use strict';
 
     // Version constant - update this single variable when releasing new versions
-    const VERSION = '2.5.4';
+    const VERSION = '2.5.5';
 
     console.log(`Enhanced Grok Export v${VERSION} starting...`);
 
@@ -41,62 +41,7 @@
 
     let isExporting = false;
 
-    // Update checking functionality
-    function checkForUpdates() {
-        debugLog('Checking for updates...');
 
-        const currentVersion = CONFIG.version;
-        const updateUrl = 'https://raw.githubusercontent.com/Dragonatorul/enhanced-grok-export/rc/Enhanced%20Grok%20Export.user.js';
-
-        fetch(updateUrl)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                return response.text();
-            })
-            .then(scriptContent => {
-                // Extract version from the downloaded script
-                const versionMatch = scriptContent.match(/@version\s+([0-9]+\.[0-9]+\.[0-9]+)/);
-                if (versionMatch) {
-                    const latestVersion = versionMatch[1];
-                    debugLog(`Current version: ${currentVersion}, Latest version: ${latestVersion}`);
-
-                    if (compareVersions(latestVersion, currentVersion) > 0) {
-                        // Newer version available
-                        showUpdateNotification(latestVersion);
-                    } else if (compareVersions(latestVersion, currentVersion) === 0) {
-                        debugLog('Script is up to date');
-                    } else {
-                        debugLog('Local version appears to be newer than remote');
-                    }
-                } else {
-                    debugLog('Could not extract version from remote script');
-                }
-            })
-            .catch(error => {
-                debugLog('Update check failed:', error.message);
-            });
-    }
-
-    // Helper function to compare version strings
-    function compareVersions(version1, version2) {
-        const v1Parts = version1.split('.').map(Number);
-        const v2Parts = version2.split('.').map(Number);
-
-        for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
-            const v1Part = v1Parts[i] || 0;
-            const v2Part = v2Parts[i] || 0;
-
-            if (v1Part > v2Part) return 1;
-            if (v1Part < v2Part) return -1;
-        }
-
-        return 0;
-    }
-
-    // Show update notification
-    function showUpdateNotification(latestVersion) {
         const notification = document.createElement('div');
         notification.id = 'grok-update-notification';
         notification.style.cssText = `
@@ -1478,9 +1423,10 @@
         });
 
         // Check for updates (only once per session, with delay)
-        setTimeout(() => {
-            checkForUpdates();
-        }, 3000);
+        // Disabled to avoid CSP violations on grok.com
+        // setTimeout(() => {
+        //     checkForUpdates();
+        // }, 3000);
 
         debugLog(`Enhanced Grok Export v${VERSION} initialized successfully!`);
         console.log(`%c✅ Enhanced Grok Export v${VERSION} Ready!`, 'color: green; font-weight: bold;');
