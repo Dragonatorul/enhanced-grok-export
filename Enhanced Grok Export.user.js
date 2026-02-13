@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Enhanced Grok Export
 // @description  Export Grok conversations with improved detection and working PDF
-// @version      2.5.2
+// @version      2.5.3
 // @author       iikoshteruu, Dragonator
 // @grant        none
 // @match        *://grok.com/*
@@ -18,7 +18,7 @@
     'use strict';
 
     // Version constant - update this single variable when releasing new versions
-    const VERSION = '2.5.2';
+    const VERSION = '2.5.3';
 
     console.log(`Enhanced Grok Export v${VERSION} starting...`);
 
@@ -822,11 +822,14 @@
         // Strategy 1: Sidebar / project-panel link matching the current conversation ID.
         // This is the most reliable source when inside a project because the page title
         // reflects the project name rather than the conversation name.
+        // Multiple elements may share the same href (e.g. the top nav "Chat" link and the
+        // history entry), so iterate all matches and skip generic single-word nav labels.
         if (conversationId) {
-            const sidebarLink = document.querySelector(`a[href*="/c/${conversationId}"]`);
-            if (sidebarLink) {
-                const text = sidebarLink.textContent?.trim();
-                if (text && text.length > 0 && text.length < 200) {
+            const candidateLinks = document.querySelectorAll(`a[href*="/c/${conversationId}"]`);
+            for (const link of candidateLinks) {
+                const text = link.textContent?.trim();
+                if (text && text.length > 4 && text.length < 200 &&
+                    !/^(chat|home|voice|imagine|projects?)$/i.test(text)) {
                     debugLog('Found conversation name from sidebar link:', text);
                     return text;
                 }
